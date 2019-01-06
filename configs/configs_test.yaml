@@ -1,0 +1,3 @@
+Port: 8080
+Hostnames: ['something', 'crazy']
+Erroneous: false
