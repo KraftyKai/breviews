@@ -12,25 +12,25 @@ import (
 )
 
 
-type configs struct {
+type Definitions struct {
 	File      string    `yaml:"File"`
 	Port      int       `yaml:"Port"`
 	Hostnames []string  `yaml:"Hostnames"`
 }
 
-var Values configs
+var values Definitions
 
 var flags = []cli.Flag {
 	cli.StringFlag{
 		Name: "config, c",
 		Usage: "YAML config `FILE`.",
-		Destination: &Values.File,
+		Destination: &values.File,
 	},
 	cli.IntFlag{
 		Name: "Port, p",
 		Usage: "`PORT` to listen on.",
 		Value: 80,
-		Destination: &Values.Port,
+		Destination: &values.Port,
 	},
 	cli.StringSliceFlag{
 		Name: "Hostnames, n",
@@ -39,14 +39,14 @@ var flags = []cli.Flag {
 	},
 }
 
-func LoadFile(c *configs) error {
-	if Values.File == "" {
+func LoadFile(c *Definitions) error {
+	if values.File == "" {
 		// No config file was provided...
 		log.Printf("No config file provided...\n")
 		return nil
 	}
-	log.Printf("Loading config file from %v", Values.File)
-	yamlFile, err := ioutil.ReadFile(Values.File)
+	log.Printf("Loading config file from %v", values.File)
+	yamlFile, err := ioutil.ReadFile(values.File)
 	if err != nil {
 		log.Printf("yamlFile.Get err #%v ", err)
 	}
@@ -59,10 +59,10 @@ func LoadFile(c *configs) error {
 	return nil
 }
 
-func UpdateValues(fileConfigs *configs, c *cli.Context) {
+func UpdateValues(fileConfigs *Definitions, c *cli.Context) {
 	fileFields := reflect.TypeOf(*fileConfigs)
 	fileValues := reflect.ValueOf(*fileConfigs)
-	vv := reflect.ValueOf(&Values).Elem()
+	vv := reflect.ValueOf(&values).Elem()
 	for i := 0; i < fileFields.NumField(); i++ {
 		field := fileFields.Field(i)
 		if !c.IsSet(field.Name) {
@@ -92,7 +92,7 @@ func UpdateValues(fileConfigs *configs, c *cli.Context) {
 	}
 }
 
-func Init() error {
+func Init() (*Definitions, error) {
 	app        := cli.NewApp()
 	app.Name    = "Book Review"
 	app.Usage   = "Better book reviews!"
@@ -100,29 +100,29 @@ func Init() error {
 	app.Flags   = flags
 
 	app.Action = func(c *cli.Context) error {
-		var yamlConfigs configs
+		var yamlConfigs Definitions
 		LoadFile(&yamlConfigs)
 
 		// Override config values passed as params
-		Values.Hostnames = c.StringSlice("Hostnames")
+		values.Hostnames = c.StringSlice("Hostnames")
 		// XXX: StringSlice hack exists due to:
 		// https://github.com/urfave/cli/issues/790
 		if c.IsSet("Hostnames") || c.IsSet("n") {
-			Values.Hostnames = Values.Hostnames[1:]
+			values.Hostnames = values.Hostnames[1:]
 		} else if len(yamlConfigs.Hostnames) > 0 {
-			Values.Hostnames = yamlConfigs.Hostnames
+			values.Hostnames = yamlConfigs.Hostnames
 		}
 
 		UpdateValues(&yamlConfigs, c)
 		log.Printf(
 			"Configs loaded:\nPort: %d\nHostnames: %v\n",
-			Values.Port,
-			Values.Hostnames,
+			values.Port,
+			values.Hostnames,
 		)		
 		
 		return nil
 	}
 	
 	err := app.Run(os.Args)
-	return err
+	return &values, err
 }
